@@ -13,6 +13,7 @@
         * cached;
         * uncached;
     ![VPsubsets](./3subsetsofVP.jpg)
+    ![Getting Started](3subsetsofVP.jpg)
 
 
 
