@@ -12,7 +12,7 @@
         * unallocated - do not occupy disk space;
         * cached;
         * uncached;
-    ![VPsubsets](./3subsetsofVP.PNG)
+    ![VPsubsets](./3subsetsofVP.jpg)
 
 
 
