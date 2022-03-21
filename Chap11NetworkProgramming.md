@@ -79,6 +79,200 @@
     128.2.194.242
   ```
   * Application program can convert back and forth between **IP addresses** and **dotted-decimal string**.
+## 11.3.2 Internet Domain Names
+* IP addresses map to **Domain Names**.
+* The mapping is maintained in a distributed worldwide database known as **DNS (Domain Name System)**.
+* Example - whaleshark.ics.cs.cmu.edu
+  ![InternetDomainNameHierarchy](./Figure11_10.png)
+  * First-level domain names:
+    * Defined by ICANN (Internet Corporation for Assigned Names and Numbers) organization.
+    * Includes com, edu, gov, org and net.
+* Each Internet Host has the locally defined domain name **localhost**, which is always mapped to **loopback** address: 127.0.0.1.
+  ```
+    yd@ubuntu:~$ nslookup localhost
+    Server:		127.0.0.53
+    Address:	127.0.0.53#53
+
+    Non-authoritative answer:
+    Name:	localhost
+    Address: 127.0.0.1
+    Name:	localhost
+    Address: ::1
+  ```
+* **'Hostname'** to determine the real domain name of the local host. **'nslookup'** to determine the localhost ip address:
+  ```
+    yd@ubuntu:~$ hostname
+    ubuntu
+    yd@ubuntu:~$ nslookup ubuntu
+    Server:		127.0.0.53
+    Address:	127.0.0.53#53
+
+    Non-authoritative answer:
+    Name:	ubuntu
+    Address: 127.0.1.1
+  ```
+  ```
+    yd@ubuntu:~$ nslookup www.baidu.com
+    Server:		127.0.0.53
+    Address:	127.0.0.53#53
+
+    Non-authoritative answer:
+    www.baidu.com	canonical name = www.a.shifen.com.
+    Name:	www.a.shifen.com
+    Address: 180.101.49.11
+    Name:	www.a.shifen.com
+    Address: 180.101.49.12
+  ```
+* Sometimes, multiple domain names are mapped to the same IP address.
+## 11.3.3 Internet Connections
+* A **connection** is point-to-point that it connects a pair of **processes**.
+* A **socket** is an **end point** of a connection.
+  * Each socket has a **socket address** consisting of an **Internet Address** and a **16bit integer port**.
+  * The **port** in the **client**'s socket address is assigned automatically by the kernel, when a client make a request and is known as a **ephemeral port**.
+  * The port in the **server**'s socket address is well-known port that is permanently associated with the service.
+    * Web servers use port 80.
+    * Email servers use port 25. 
+  * The well-known service name for the Web service is aasociated with a well-know port.
+    * Web service - http.
+    * Email - smtp.
+  * The mapping between well-known names and well-known ports is stored in a file (/etc/services).
+* A connection is identified by **socket pair** (2 end-point socket addresses). Socket pair:
+  * Format - **cliaddr:cliport, servaddr:servport**.
+  * Example (Web client socket address):
+    ```
+      128.2.194.242:51213
+    ```
+    * Client address: 128.2.194.242.
+    * Ephemeral port: 51213.
+  * Example (Web server's socket address):
+    ```
+      208.216.181.15:80
+    ```
+    * Server address: 208.216.181.15.
+    * Port: 80 - http/tcp.
+  * Socket pair: (128.2.194.242:51213, 208.216.181.15:80).
+
+# 11.4 The Socket Interface
+* The **socket interface** is a set of **functions** that are used in with Unix I/O functions to build network application.
+* _in means internet.
+![SocketInterfaceOfNetworkApplication](./Figure11_12.png)
+## 11.4.1 Socket Address Structures
+```
+  /* IP socket address structure */
+  struct sockaddr_in {
+  uint16_t  sin_family;     /* Protocol family (always AF_INET) */
+  uint16_t  sin_port;       /* Port number in network byte order */
+  struct in_addr sin_addr;  /* IP address  in network byte order */
+  unsigned char sin_zero[8]; /* Pad to sizeof(struct sockaddr) */
+  };
+  
+  /* Generic socket address structure (for connect, bind, and accept) */
+  struct sockaddr {
+  uint16_t sa_family; /* Protocol family */
+  char  sa_data[14];  /* Address data */
+  };
+```
+* For Linux kernel, a socket is **an end point for communication**.
+* For Linux Program, a socket is an open file with descriptor.
+```
+  typedef struct sockaddr SA;
+```
+## 11.4.2 The **socket** Function
+* Client and server use **socket function** to create **a socket descriptor**.
+```
+  #include <sys/types.h>
+  #include <sys/socket.h>
+  int socket(int domain, int type, int protocol);
+```
+* How to call socket:
+  ```
+    clientfd = socket(AF_INET, SOCK_STREAM, 0);
+  ```
+## 11.4.3 The **connect** Function
+* A client establish a connection with a server by calling the **connect** function.
+```
+  #include <sys/socket.h>
+  int connect(int clientfd, const struct sockaddr *addr, socklen_t addrlen);
+  Returns: 0 if OK, −1 on error
+```
+* If the connection succeeds, the clientfd is ready for reading and writing.
+* The resulting connection is characterized by the socket pair:
+  ```
+    (x:y, addr.sin_addr:addr.sin_port)
+  ```
+## 11.4.4 The **bind** Function
+* **bind, listen and accept** are used for servers to establish connection with clients.
+  ```
+    #include <sys/socket.h>
+    int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+    Returns: 0 if OK, −1 on error
+  ```
+  * **bind** function asks kernel to associate the server's **socket address in addr** with the **socket descriptor socketfd**.
+  * Should use **getaddrinfo** to supply argument to bind.
+## 11.4.5 The **listen** Function
+* A server calls **listen** function to tell kernel that the socket will be used by a server instead of a client.
+  ```
+    #include <sys/socket.h>
+    int listen(int sockfd, int backlog);
+    Returns: 0 if OK, −1 on error
+  ```
+    * listen convert sockfd from an active socket to a **listening socket** that can accept connect request from clients.
+## 11.4.6 The **accept** Function
+```
+  #include <sys/socket.h>
+  int accept(int listenfd, struct sockaddr *addr, int *addrlen);
+  Returns: nonnegative connected descriptor if OK, −1 on error
+```
+* Accept function:
+  * Waits for a **connection request** from a client to arrive on listen descriptor **listenfd**.
+  * **Fills** in client's socket descriptor in addr.
+  * Returns a **connected** descriptor.
+  ![ListenAndConnect](./Figure11_14.png)
+## 11.4.7 Host and Service Conversion
+### The **getaddrinfo** function
+* getaddrinfo converts strings of hostnames, host addresses, service names and port numbers into socket address structures.
+  ```
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netdb.h>
+    int getaddrinfo(const char *host, const char *service, const struct addrinfo *hints, struct addrinfo **result);
+    Returns: 0 if OK, nonzero error code on error
+    void freeaddrinfo(struct addrinfo *result);
+    Returns: nothing
+    const char *gai_strerror(int errcode);
+    Returns: error message
+  ```
+    * 'result' points to a linked list of addrinfo structures which point to a socket address structure.
+    * 'host' can be a domain name or a numeric address.
+    * 'service' can be a service name or a decimal port number.
+  ```
+    struct addrinfo {
+        int     ai_flags;       /* Hints argument flags */
+        int     ai_family;      /* First arg to socket function */
+        int     ai_socktype;    /* Second arg to socket function */
+        int     ai_protocol;    /* Third arg to socket function */
+        char    *ai_canonname;  /* Canonical hostname */
+        size_t  ai_addrlen;     /* Size of ai_addr struct */
+        struct sockaddr *ai_addr; /* Ptr to socket address structure */
+        struct addrinfo *ai_next; /* Ptr to next item in linked list */
+    };
+  ```
+    * ai_family: AF_INET=IPv4 address, AF_INET6=IPv6 address.
+### The **getnameinfo** Function
+* getnameinfo is the inverse of getaddrinfo, which converts a socket address structure to host and service name strings.
+```
+  #include <sys/socket.h>
+  #include <netdb.h>
+  int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *service, size_t servlen, int flags);
+  Returns: 0 if OK, nonzero error code on error
+```
+  * The host or service name strings will be copies to 'host' or 'service'.
+
+
+
+
+
+
 
 
 
