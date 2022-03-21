@@ -258,6 +258,13 @@
     };
   ```
     * ai_family: AF_INET=IPv4 address, AF_INET6=IPv6 address.
+    * ai_socktype: SOCK_STREAM - restrict the list to **at most one addrinfo structure** for each unique address.
+    * ai_flags: can use or to use various values at the same time.
+      * AI_ADDRCONFIG: recommended if using connections.
+      * AI_CANONNAME: instructs getaddrinfo to point the **ai_canonname field** in the **first** addrinfo structure in the list to the canonical (official) name.
+      * AI_NUMERICSERV: force the service argument to be a port number.
+      * AI_PASSIVE: instructs to return socket addresses that can be used by servers as **listening sockets**.
+of host
 ### The **getnameinfo** Function
 * getnameinfo is the inverse of getaddrinfo, which converts a socket address structure to host and service name strings.
 ```
