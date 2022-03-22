@@ -274,6 +274,11 @@ of host
   Returns: 0 if OK, nonzero error code on error
 ```
   * The host or service name strings will be copies to 'host' or 'service'.
+  * flags:
+    * NI_NUMERICHOST: force getnameinfo to return a numeric address string as a domain name in host.
+    * NI_NUMERICSERV: 
+      * By default, getnameinfo will lookinto /etc/services and return a service name.
+      * Setting NI_NUMERICSERV will force getnameinfo to return port number without looking into /etc/services.
 
 
 
