@@ -279,8 +279,72 @@ of host
     * NI_NUMERICSERV: 
       * By default, getnameinfo will lookinto /etc/services and return a service name.
       * Setting NI_NUMERICSERV will force getnameinfo to return port number without looking into /etc/services.
+## 11.4.8 Helper Function for the Sockets Interface
+* Higher level helper function: open_clientfd, open_listenfd.
+### open_clientfd
+```
+  #include "csapp.h"
+    int open_clientfd(char *hostname, char *port);
+    Returns: descriptor if OK, −1 on error
+```
+* A client **establishes a connection** with a server by calling open_clientfd running on host 'hostname' and listening for connection requests on port number 'port'.
+* Codes:
+  ```
+    int open_clientfd(char *hostname, char *port)
+    {
+      int clientfd;
+      struct addrinfo hints, *listp, *p;
 
+      /* Get a list of server sock address structures */
+      memset(&hints, 0, sizeof(struct addrinfo));
+      hints.ai_socktype = SOCK_STREAM;  // return at most one addrinfo structure 
+      hints.ai_flags = AI_NUMERICSERV;  // force the 'service' argument to be a port number
+      hints.ai_flag |= AI_ADDRCONFIG;   // recommended if using connections
+      getaddrinfo(hostname, port, &hints, &listp);  // get sock address structure 'listp'
 
+      for(p = listp; p; p = p->ai_next)
+      {
+        // Create Socket. if socket function failed, continue next loop
+        if((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
+          continue;
+
+        // Connect to the server. If connect successfully, break the loop.
+        if(connect(clientfd, p->ai_address, p->ai_addrlen)!=-1)
+          break;
+        close(clientfd);
+      }
+
+      Freeaddrinfo(listp);
+      if(!p) return -1;
+      else return clientfd; // return successful connect
+    }
+  ```
+### open_listenfd
+* A server creates a listening descriptor that is ready to recieve connection requests by calling open_listenfd function.
+```
+  int open_listenfd(char* port)
+  {
+    struct addrinfo hints, *listp, *p;
+    int listenfd, optval=1;
+
+    /* Get a list of potential server addresses */
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags  = AI_PASSIVE | AI_ADDRCONFIG; // be listening socket | recommend
+    hints.ai_flags |= AI_NUMERICSERV; // force the 'service' argument to be a port number
+    getaddrinfo(NULL, port, &hints, &listp);
+
+    /* Walk through the address list and find the one to bind */
+    for(p=listp;p;p=p->ai_next)
+    {
+      // Create a socket descriptor
+      if((listenfd = socket(p->ai_family,p->ai_socktype,p->ai_protocol))<0)
+        continue;
+
+      setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval, sizeof(int));
+    }
+  }
+```
 
 
 
