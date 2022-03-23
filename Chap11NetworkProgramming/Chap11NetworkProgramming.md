@@ -341,10 +341,224 @@ of host
       if((listenfd = socket(p->ai_family,p->ai_socktype,p->ai_protocol))<0)
         continue;
 
+      // Set sock option. Eliminate "address already in use" error from bind
       setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval, sizeof(int));
+
+      // Bind the descriptor to the address
+      if(bind(listenfd, p->ai_address, p->ai_addrlen)==0)
+        break; // if bind successfully, break the loop. 
+
+      close(listenfd); // if bind failed, close current listenfd, try next p.
+    }
+
+    // Clean up
+    Freeaddrinfo(listp);
+    if(!p) return -1; // if no address works, return -1.
+
+    // Make listenfd a listen socket and ready to accept connections. If not, close and return.
+    if(listen(listenfd, LISTENQ)<0)
+    {
+      close(listenfd);
+      return -1;
+    }
+
+    return listenfd;
+  }
+```
+## 11.4.9 Example Echo Client and Server
+* Echo client main routine:
+```
+  #include "csapp.h"
+  int main(int argc, char** argv)
+  {
+    int clientfd;
+    char *host,*port,buf[MAX_LINE];
+    rio_t rio;
+
+    if(argc != 3)
+    {
+      fprintf(stderr, "usage: %s <host> <port>\n", argv[0]);
+      exit(0);
+    }
+    host = argv[1];
+    port = argv[2];
+
+    clientfd = open_clientfd(host, port);
+    rio_readinitb(&rio, clientfd);  // Associate descriptor clientfd with a read buffer of type rio_t at address rio
+
+    while(fgets(buf, MAX_LINE, stdin) != NULL)
+    {
+      rio_written(clientfd, buf, strlen(buf));  // transfer data in buf to desciptor clientfd (transfer data to server)
+      rio_readlineb(&rio,buf,MAX_LINE); // read from file rio (server) to buf with MAX_LINE-1 bytes
+      fputs(buf, stdout);
+    }
+    
+    close(clientfd);
+    exit(0);
+  }
+```
+* Echo server main routine:
+```
+  #include "csapp.h"
+  int main(int argc, char** argv)
+  {
+    int listenfd, connfd;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+    char client_hostname[MAX_LINE], client_port[MAX_LINE];
+
+    if(argc!=2)
+    {
+      fprintf(stderr, "%s <port>\n", argv[0]);
+      exit(0);
+    }
+
+    listenfd = open_listenfd(argv[1]);
+    while(1)
+    {
+      clientlen = sizeof(struct sockaddr_storage);
+      connfd = accept(listenfd, (SA*)&clientaddr, &clientlen);
+      // getnameinfo will fill in clientaddr with client socket address.
+      getnameinfo((SA*)&clientaddr, clientlen, client_hostname, MAX_LINE, client_port, MAX_LINE, 0);
+      printf("Connected to (%s %s)\n", client_hostname, client_port);
+      echo(connfd);
+      close(connfd);
+    }
+    exit(0);
+  }
+```
+  * can only handle one client and it's an **iterative** server.
+* echo routine:
+```
+  #incldue "csapp.h"
+  void echo(int connfd)
+  {
+    size_t n;
+    char buf[MAX_LINE];
+    rio_t rio;
+
+    rio_readinitb(&rio, connfd);
+    while((n = rio_readlineb(&rio, buf, MAX_LINE))!=0)
+    {
+      printf("server received %d bytes \n", (int)n);
+      rio_written(connfd, buf, n);
     }
   }
 ```
+# 11.5 Web Servers
+## 11.5.1 Web Basics
+* Web clients and servers interact using HTTP (hypertext transfer protocol).
+* Web content can be written in a language called HTML (hypertext markup language).
+## 11.5.2 Web Contect
+* For Web clients and servers, content is **a sequence of bytes** with associated MIME type.
+  * MIME - multipurpose internet mail extensions.
+  ```
+    text/html               // HTML page
+    text/plain              // Unformatted text
+    application/postscript  // Postscript document
+    image/gif               // Binary image encoded in GIF format
+    image/png               // Binary image encoded in PNG format
+    image/jpeg              // Binary image encoded in JPEG format
+  ```
+* Web servers provide content to clients in 2 ways:
+  * Fetch a disk file and return its content to the client.
+    * static content - serving static content.
+  * Run an executable file and return its output to the client.
+    * dynamic content - serving dynamic content.
+* Each of returned file is known as URL (universal resource locator).
+```
+  http://bluefish.ics.cs.cmu.edu:8000/cgi-bin/adder?15000&213
+```
+  * Identify an executable called '/cgi-bin/adder'.
+  * 2 arguments: 15000, 213.
+  * '?' separates the filename and arguments.
+  * '&' separates argements and arguments.
+## 11.5.3 HTTP Transactions
+### HTTP Requests
+* A HTTP request consists of a request line, 0 or more request headers and an empty text line.
+* Request line format:
+  ```
+    method URI version
+  ```
+  * HTTP supports methods including GET, POST, OPTIONS, HEAD, PUT, DELETE and TRACE.
+  * version indicates HTTP version.
+* Request header format:
+  ```
+    header-name: header-data
+  ```
+  * host header is used by **proxy caches**.
+    * Proxy caches sometimes serve as intermediaries between a browser and the origin server that manages the requested file.
+### HTTP Responses
+* A HTTP response consist of a response line, 0 or more response headers, an empty line and response body.
+* Response line:
+  ```
+    version status-code status-message
+  ```
+  * version: http version.
+  * status-code: 3-digit positive integer.
+  ![status-code](./Figure11_25.png)
+  * status-message: English equivalent of the error code.
+* Response header:
+  * content-type: MINE type.
+  * content-length.
+## 11.5.4 Serving Dynamic Content
+* How Does the Client Pass Program Arguments to the Server?
+  * '?' + '&'.
+* How Does the Server Pass Arguments to the Child?
+  * Example: GET /cgi-bin/adder?15000&213 HTTP/1.1
+    * Server receives the request.
+    * Server calls fork to create a child process and calls execve to run /cgi-bin/adder.
+    * Common Gateway Interface, or CGI, is a set of standards that define how information is exchanged between the web server and a custom script.
+* How Does the Server Pass Other Information to the Child?
+  * Use other CGI environment variable.
+* Where Does the Child Send Its Output?
+  * CGI program sends its dynamic content to the standard output
+* Example - CGI program that sums 2 arguments and return an HTML file.
+``` Example - sums 2 arguments and return an HTML file
+  #include "csapp.h"
+  int main(void)
+  {
+    char *buf, *p;
+    char arg1[MAX_LINE], arg2[MAX_LINE], content[MAX_LINE];
+    int n1=0, n2=0;
+
+    /* Extract 2 argument to arg1 and arg2 */
+    if((buf = getenv("QUERY_STRING"))!=NULL)
+    {
+      p = strchr(buff, '&');  // search in the buff for '&'. Return the pointer to '&'.
+      *p = '\0';
+      strcpy(arg1, buff);
+      strcpy(arg2, p+1);
+      n1 = atoi(arg1);
+      n2 = atoi(arg2);
+    }
+
+    /* Make the Response Body */
+    sprintf(content, "QUERY_STRING=%s", buf);  // sends formatted output to a string pointed to, by content.
+    sprintf(content, "Welcome to add.com: ");
+    sprintf(content, "%sThe Internet addition portal.\r\n<p>",content);
+    sprintf(content, "%sThe answer is: %d + %d = %d\r\n<p>",content,n1,n2,n1+n2);
+    sprintf(content, "%sThanks for visiting!\r\n",content);
+
+    /* Generate the HTTP response */
+    printf("Connection close\r\n");
+    printf("Content-length: %d\r\n",(int)strlen(content));
+    printf("Content-type: text/html\r\n\r\n");
+    printf("%s",content);
+    fflush(stdout);
+
+    exit(0);
+  }
+```
+
+# 11.6 Put it together: **tiny** Web Server
+  
+
+    
+    
+    
+
+
 
 
 
@@ -361,7 +575,7 @@ of host
 0.0.0.128:          0x00000080
 255.255.255.0:      0xFFFFFF00
 10.1.1.64:          0x0A010140
-## Practical Problem 11.2
-``` hex2dd.c
-    
-```
+## Practical Problem 11.5
+* dup2 function redirect standard output to the connected descriptor.
+* load process to run CGI program.
+* CGI write to standard output will also go to the client.
