@@ -552,7 +552,15 @@ of host
 ```
 
 # 11.6 Put it together: **tiny** Web Server
-  
+* Example to realize:
+![HTTP_Transaction](./Figure11_24.png)
+
+# 11.7 Summary
+* Clients and servers establish connections by using **socket interface**.
+  * A socket is an end point of connection that is presented to applications in the **form of a file descriptor**.
+  * Socket interface provides functions for opening and closing socket descriptor.
+  * Client and servers communicate with each other by reading and writing these descriptors.
+* CGI standard provides a set of rules that govern how the client passes arguments to the server, how the server passes arguments and other information to the child process, and how the child sends its output back to the client.
 
     
     
