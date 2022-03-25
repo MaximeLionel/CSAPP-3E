@@ -27,7 +27,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    listenfd = open_listenfd(argv[1]);
+    listenfd = Open_listenfd((int)argv[1]);
     while(1)
     {
         clientlen = sizeof(clientaddr);
@@ -258,3 +258,4 @@ void serve_dynamic(int fd, char *filename, char *cgiargs)
     }
     Wait(NULL); // Parent process is waiting
 }
+
